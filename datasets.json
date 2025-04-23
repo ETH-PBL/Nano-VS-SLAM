@@ -1,0 +1,12 @@
+{
+    "hpatches_data_path": "F:\\Datasets\\HPatches",
+    "nyuv2_data_path": "F:\\Datasets\\NYULabeled\\NYUv2_Labeled",
+    "nyuv2_depth_data_path": "F:\\Datasets\\NYUv2",
+    "scene_parse_data_path": "F:\\Datasets\\SceneParse150",
+    "cityscapes_data_path": "F:\\Datasets\\Cityscapes",
+    "pittsburgh_data_path": "F:\\Datasets\\pittsburgh",
+    "coco_data_path": "F:\\Coco",
+    "kitti_path": "D:\\PycharmProjects\\pyslam\\videos\\kitti06",
+    "kitti_gt_path": "06.txt",
+    "kitti_video_path": "video_color.mp4"
+}
