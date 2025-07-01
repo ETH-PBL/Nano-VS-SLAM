@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from torch.autograd import Variable
+
+
 # form https://github.com/lyakaap/NetVLAD-pytorch
 class HardTripletLoss(nn.Module):
     """Hard/Hardest Triplet Loss
@@ -10,6 +12,7 @@ class HardTripletLoss(nn.Module):
 
     For each anchor, we get the hardest positive and hardest negative to form a triplet.
     """
+
     def __init__(self, margin=0.1, hardest=False, squared=False):
         """
         Args:
@@ -38,14 +41,19 @@ class HardTripletLoss(nn.Module):
             # Get the hardest positive pairs
             mask_anchor_positive = _get_anchor_positive_triplet_mask(labels).float()
             valid_positive_dist = pairwise_dist * mask_anchor_positive
-            hardest_positive_dist, _ = torch.max(valid_positive_dist, dim=1, keepdim=True)
+            hardest_positive_dist, _ = torch.max(
+                valid_positive_dist, dim=1, keepdim=True
+            )
 
             # Get the hardest negative pairs
             mask_anchor_negative = _get_anchor_negative_triplet_mask(labels).float()
             max_anchor_negative_dist, _ = torch.max(pairwise_dist, dim=1, keepdim=True)
             anchor_negative_dist = pairwise_dist + max_anchor_negative_dist * (
-                    1.0 - mask_anchor_negative)
-            hardest_negative_dist, _ = torch.min(anchor_negative_dist, dim=1, keepdim=True)
+                1.0 - mask_anchor_negative
+            )
+            hardest_negative_dist, _ = torch.min(
+                anchor_negative_dist, dim=1, keepdim=True
+            )
 
             # Combine biggest d(a, p) and smallest d(a, n) into final triplet loss
             triplet_loss = F.relu(hardest_positive_dist - hardest_negative_dist + 0.1)
@@ -139,9 +147,10 @@ def _get_triplet_mask(labels):
     i_equal_k = torch.unsqueeze(label_equal, 1)
     valid_labels = i_equal_j * (i_equal_k ^ 1)
 
-    mask = distinct_indices * valid_labels   # Combine the two masks
+    mask = distinct_indices * valid_labels  # Combine the two masks
 
     return mask
+
 
 def jaccard_distance_loss(y_true, y_pred, smooth=100):
     """
@@ -157,20 +166,23 @@ def jaccard_distance_loss(y_true, y_pred, smooth=100):
     @url: https://gist.github.com/wassname/17cbfe0b68148d129a3ddaa227696496
     @author: wassname
     """
-    intersection= (y_true * y_pred).abs().sum(dim=-1)
+    intersection = (y_true * y_pred).abs().sum(dim=-1)
     sum_ = torch.sum(y_true.abs() + y_pred.abs(), dim=-1)
     jac = (intersection + smooth) / (sum_ - intersection + smooth)
     return (1 - jac) * smooth
+
 
 # From https://github.com/zju3dv/deltar/blob/main/src/loss.py
 class SILogLoss(nn.Module):
     def __init__(self):
         super(SILogLoss, self).__init__()
-        self.name = 'SILog'
+        self.name = "SILog"
 
     def forward(self, input, target, mask=None, interpolate=True):
         if interpolate:
-            input = nn.functional.interpolate(input, target.shape[-2:], mode='bilinear', align_corners=True)
+            input = nn.functional.interpolate(
+                input, target.shape[-2:], mode="bilinear", align_corners=True
+            )
 
         if mask is not None:
             input = input[mask]
@@ -178,6 +190,7 @@ class SILogLoss(nn.Module):
         g = torch.log(input) - torch.log(target)
         Dg = torch.var(g) + 0.15 * torch.pow(torch.mean(g), 2)
         return 10 * torch.sqrt(Dg)
+
 
 # From https://github.com/haofengac/MonoDepth-FPN-PyTorch/blob/master/main_fpn.py
 import matplotlib.pyplot as plt
@@ -190,7 +203,7 @@ class RMSE_log(nn.Module):
     def forward(self, fake, real):
         if not fake.shape == real.shape:
             _, _, H, W = real.shape
-            fake = F.upsample(fake, size=(H, W), mode='bilinear')
+            fake = F.upsample(fake, size=(H, W), mode="bilinear")
         loss = torch.sqrt(torch.mean(torch.abs(torch.log(real) - torch.log(fake)) ** 2))
         return loss
 
@@ -202,8 +215,8 @@ class L1(nn.Module):
     def forward(self, fake, real):
         if not fake.shape == real.shape:
             _, _, H, W = real.shape
-            fake = F.upsample(fake, size=(H, W), mode='bilinear')
-        loss = torch.mean(torch.abs(10. * real - 10. * fake))
+            fake = F.upsample(fake, size=(H, W), mode="bilinear")
+        loss = torch.mean(torch.abs(10.0 * real - 10.0 * fake))
         return loss
 
 
@@ -214,7 +227,7 @@ class L1_log(nn.Module):
     def forward(self, fake, real):
         if not fake.shape == real.shape:
             _, _, H, W = real.shape
-            fake = F.upsample(fake, size=(H, W), mode='bilinear')
+            fake = F.upsample(fake, size=(H, W), mode="bilinear")
         loss = torch.mean(torch.abs(torch.log(real) - torch.log(fake)))
         return loss
 
@@ -228,14 +241,14 @@ class BerHu(nn.Module):
         mask = real > 0
         if not fake.shape == real.shape:
             _, _, H, W = real.shape
-            fake = F.upsample(fake, size=(H, W), mode='bilinear')
+            fake = F.upsample(fake, size=(H, W), mode="bilinear")
         fake = fake * mask
         diff = torch.abs(real - fake)
         delta = self.threshold * torch.max(diff).data.cpu().numpy()[0]
 
-        part1 = -F.threshold(-diff, -delta, 0.)
-        part2 = F.threshold(diff ** 2 - delta ** 2, 0., -delta ** 2.) + delta ** 2
-        part2 = part2 / (2. * delta)
+        part1 = -F.threshold(-diff, -delta, 0.0)
+        part2 = F.threshold(diff**2 - delta**2, 0.0, -(delta**2.0)) + delta**2
+        part2 = part2 / (2.0 * delta)
 
         loss = part1 + part2
         loss = torch.sum(loss)
@@ -249,9 +262,10 @@ class RMSE(nn.Module):
     def forward(self, fake, real):
         if not fake.shape == real.shape:
             _, _, H, W = real.shape
-            fake = F.upsample(fake, size=(H, W), mode='bilinear')
-        loss = torch.sqrt(torch.mean(torch.abs(10. * real - 10. * fake) ** 2))
+            fake = F.upsample(fake, size=(H, W), mode="bilinear")
+        loss = torch.sqrt(torch.mean(torch.abs(10.0 * real - 10.0 * fake) ** 2))
         return loss
+
 
 class Grad(nn.Module):
     def __init__(self):
@@ -264,17 +278,24 @@ class Grad(nn.Module):
 
     # L1 norm
     def forward(self, fake, real):
-        mask = torch.cat([real.view(real.shape[0], 1, -1).gt(0.),
-                          real.view(real.shape[0], 1, -1).gt(0.)], dim=1)
+        mask = torch.cat(
+            [
+                real.view(real.shape[0], 1, -1).gt(0.0),
+                real.view(real.shape[0], 1, -1).gt(0.0),
+            ],
+            dim=1,
+        )
         grad_real = self.conv1(real).view(real.shape[0], 2, -1)
         grad_fake = self.conv1(fake).view(fake.shape[0], 2, -1)
         return grad_fake, grad_real, mask
+
+
 class GradLoss(nn.Module):
     def __init__(self):
         super(GradLoss, self).__init__()
 
     # L1 norm
-    def forward(self, grad_fake, grad_real, mask = None):
+    def forward(self, grad_fake, grad_real, mask=None):
         if mask is not None:
             grad_fake = grad_fake[mask]
             grad_real = grad_real[mask]
@@ -286,27 +307,34 @@ class NormalLoss(nn.Module):
         super(NormalLoss, self).__init__()
 
     def forward(self, grad_fake, grad_real):
-
-        prod = (grad_fake[:, :, None, :] @ grad_real[:, :, :, None]).squeeze(-1).squeeze(-1)
-        fake_norm = torch.sqrt(torch.sum(grad_fake ** 2, dim=-1))
-        real_norm = torch.sqrt(torch.sum(grad_real ** 2, dim=-1))
+        prod = (
+            (grad_fake[:, :, None, :] @ grad_real[:, :, :, None])
+            .squeeze(-1)
+            .squeeze(-1)
+        )
+        fake_norm = torch.sqrt(torch.sum(grad_fake**2, dim=-1))
+        real_norm = torch.sqrt(torch.sum(grad_real**2, dim=-1))
 
         return 1 - torch.mean(prod / (fake_norm * real_norm))
 
 
 def get_coords(b, h, w):
-    i_range = Variable(torch.arange(0, h).view(1, h, 1).expand(b, 1, h, w))  # [B, 1, H, W]
-    j_range = Variable(torch.arange(0, w).view(1, 1, w).expand(b, 1, h, w))  # [B, 1, H, W]
+    i_range = Variable(
+        torch.arange(0, h).view(1, h, 1).expand(b, 1, h, w)
+    )  # [B, 1, H, W]
+    j_range = Variable(
+        torch.arange(0, w).view(1, 1, w).expand(b, 1, h, w)
+    )  # [B, 1, H, W]
     coords = torch.cat((j_range, i_range), dim=1)
     norm = Variable(torch.Tensor([w, h]).view(1, 2, 1, 1))
-    coords = coords * 2. / norm - 1.
+    coords = coords * 2.0 / norm - 1.0
     coords = coords.permute(0, 2, 3, 1)
 
     return coords
 
 
 def resize_tensor(img, coords):
-    return nn.functional.grid_sample(img, coords, mode='bilinear', padding_mode='zeros')
+    return nn.functional.grid_sample(img, coords, mode="bilinear", padding_mode="zeros")
 
 
 def imgrad(img):
@@ -331,22 +359,22 @@ def imgrad(img):
 
     return grad_y, grad_x
 
+
 def imgrad_2(img):
     img = torch.mean(img, 1, True)
     fx = torch.tensor([[1, 0, -1], [2, 0, -2], [1, 0, -1]])
     fy = torch.tensor([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
     conv1 = nn.Conv2d(1, 2, kernel_size=3, stride=1, padding=1, bias=False)
-    weight = nn.Parameter(torch.stack([fy,fx]).float().unsqueeze(1))
+    weight = nn.Parameter(torch.stack([fy, fx]).float().unsqueeze(1))
     conv1.weight = weight
-    return conv1(img).view(img.shape[0],2,-1)
+    return conv1(img).view(img.shape[0], 2, -1)
+
+
 def imgrad_yx(img):
     N, C, _, _ = img.size()
     grad_y, grad_x = imgrad(img)
     return torch.cat((grad_y.view(N, C, -1), grad_x.view(N, C, -1)), dim=1)
 
 
-
 def reg_scalor(grad_yx):
-    return torch.exp(-torch.abs(grad_yx) / 255.)
-
-
+    return torch.exp(-torch.abs(grad_yx) / 255.0)

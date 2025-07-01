@@ -3,7 +3,6 @@
 from functools import lru_cache
 
 import torch
-import torch.nn.functional as F
 
 
 @lru_cache(maxsize=None)
@@ -36,8 +35,8 @@ def meshgrid(B, H, W, dtype, device, normalized=False):
         xs = torch.linspace(-1, 1, W, device=device, dtype=dtype)
         ys = torch.linspace(-1, 1, H, device=device, dtype=dtype)
     else:
-        xs = torch.linspace(0, W-1, W, device=device, dtype=dtype)
-        ys = torch.linspace(0, H-1, H, device=device, dtype=dtype)
+        xs = torch.linspace(0, W - 1, W, device=device, dtype=dtype)
+        ys = torch.linspace(0, H - 1, H, device=device, dtype=dtype)
     ys, xs = torch.meshgrid([ys, xs])
     return xs.repeat([B, 1, 1]), ys.repeat([B, 1, 1])
 
@@ -78,7 +77,7 @@ def image_grid(B, H, W, dtype, device, ones=True, normalized=False):
 
 def to_gray_normalized(images):
     """Performs image normalization and converts images to grayscale (preserving dimensions)
-    
+
     Parameters
     ----------
     images: torch.Tensor
@@ -92,13 +91,13 @@ def to_gray_normalized(images):
     assert len(images.shape) == 4
     images -= 0.5
     images *= 2.0
-    normalized_images = images.mean(1).unsqueeze(1) 
+    normalized_images = images.mean(1).unsqueeze(1)
     return normalized_images
 
 
 def to_color_normalized(images):
     """Performs image normalization and converts images to grayscale (preserving dimensions)
-    
+
     Parameters
     ----------
     images: torch.Tensor
@@ -112,7 +111,7 @@ def to_color_normalized(images):
     assert len(images.shape) == 4
     images -= 0.5
     images *= 2.0
-    #images *= 0.225
+    # images *= 0.225
     print(images.max())
     return images
 

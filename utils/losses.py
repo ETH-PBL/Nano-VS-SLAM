@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 # form https://github.com/lyakaap/NetVLAD-pytorch
 class HardTripletLoss(nn.Module):
     """Hard/Hardest Triplet Loss
@@ -9,6 +10,7 @@ class HardTripletLoss(nn.Module):
 
     For each anchor, we get the hardest positive and hardest negative to form a triplet.
     """
+
     def __init__(self, margin=0.1, hardest=False, squared=False):
         """
         Args:
@@ -37,14 +39,19 @@ class HardTripletLoss(nn.Module):
             # Get the hardest positive pairs
             mask_anchor_positive = _get_anchor_positive_triplet_mask(labels).float()
             valid_positive_dist = pairwise_dist * mask_anchor_positive
-            hardest_positive_dist, _ = torch.max(valid_positive_dist, dim=1, keepdim=True)
+            hardest_positive_dist, _ = torch.max(
+                valid_positive_dist, dim=1, keepdim=True
+            )
 
             # Get the hardest negative pairs
             mask_anchor_negative = _get_anchor_negative_triplet_mask(labels).float()
             max_anchor_negative_dist, _ = torch.max(pairwise_dist, dim=1, keepdim=True)
             anchor_negative_dist = pairwise_dist + max_anchor_negative_dist * (
-                    1.0 - mask_anchor_negative)
-            hardest_negative_dist, _ = torch.min(anchor_negative_dist, dim=1, keepdim=True)
+                1.0 - mask_anchor_negative
+            )
+            hardest_negative_dist, _ = torch.min(
+                anchor_negative_dist, dim=1, keepdim=True
+            )
 
             # Combine biggest d(a, p) and smallest d(a, n) into final triplet loss
             triplet_loss = F.relu(hardest_positive_dist - hardest_negative_dist + 0.1)
@@ -138,9 +145,10 @@ def _get_triplet_mask(labels):
     i_equal_k = torch.unsqueeze(label_equal, 1)
     valid_labels = i_equal_j * (i_equal_k ^ 1)
 
-    mask = distinct_indices * valid_labels   # Combine the two masks
+    mask = distinct_indices * valid_labels  # Combine the two masks
 
     return mask
+
 
 def jaccard_distance_loss(y_true, y_pred, smooth=100):
     """
@@ -156,7 +164,7 @@ def jaccard_distance_loss(y_true, y_pred, smooth=100):
     @url: https://gist.github.com/wassname/17cbfe0b68148d129a3ddaa227696496
     @author: wassname
     """
-    intersection= (y_true * y_pred).abs().sum(dim=-1)
+    intersection = (y_true * y_pred).abs().sum(dim=-1)
     sum_ = torch.sum(y_true.abs() + y_pred.abs(), dim=-1)
     jac = (intersection + smooth) / (sum_ - intersection + smooth)
     return (1 - jac) * smooth

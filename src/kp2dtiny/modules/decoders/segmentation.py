@@ -4,40 +4,116 @@ from ..segformer import SegFormerAttentionModule
 import torch
 from torch import quantization
 
+
 class SegmentationHead(Module):
     """
     Segmentation Head without Attention (V2)
     """
 
-    def __init__(self, c_in, c_hidden, c_exp, c_out, d1, with_drop, bn_momentum=0.1, upscale_method='pixelshuffle',
-                 leaky_relu=True):
-
+    def __init__(
+        self,
+        c_in,
+        c_hidden,
+        c_exp,
+        c_out,
+        d1,
+        with_drop,
+        bn_momentum=0.1,
+        upscale_method="pixelshuffle",
+        leaky_relu=True,
+    ):
         super().__init__()
-        self.convs = ModuleList([
-            AnnotatedConvBnReLUModel(c_in, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, d1, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden + d1 // 4, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, d1, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_exp, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            Conv2d(c_hidden, c_out, kernel_size=3, stride=1, padding=1)
-        ])
+        self.convs = ModuleList(
+            [
+                AnnotatedConvBnReLUModel(
+                    c_in,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    d1,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden + d1 // 4,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    d1,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_exp,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                Conv2d(c_hidden, c_out, kernel_size=3, stride=1, padding=1),
+            ]
+        )
         self.with_drop = with_drop
         self.pool = MaxPool2d(kernel_size=2, stride=2)
-        if upscale_method == 'pixelshuffle':
+        if upscale_method == "pixelshuffle":
             self.upsample = PixelShuffle(upscale_factor=2)
             self.upsample2 = PixelShuffle(upscale_factor=2)
-        elif upscale_method == 'convtranspose':
+        elif upscale_method == "convtranspose":
             self.upsample = TransposedConvUpsampleModel(d1, leaky_relu=leaky_relu)
             self.upsample2 = TransposedConvUpsampleModel(d1, leaky_relu=leaky_relu)
         else:
@@ -81,7 +157,6 @@ class SegmentationHead(Module):
         return seg
 
     def freeze(self, except_last_layer=False):
-
         for layer in self.children():
             for param in layer.parameters():
                 param.requires_grad = False
@@ -90,55 +165,134 @@ class SegmentationHead(Module):
             for param in self.convs[8].parameters():
                 param.requires_grad = True
 
+
 class SegmentationFeatHeadLight(Module):
     """
     Segmentation Head fused with Feature Descriptor Head (V3)
     Computes Segmentation + Features (+ Depth if depth = True)
     """
 
-    def __init__(self, c_in, c_hidden, c_exp, c_out, n_feat, d1, with_drop, bn_momentum=0.1,
-                 upscale_method='pixelshuffle',
-                 leaky_relu=True, depth=False):
-
+    def __init__(
+        self,
+        c_in,
+        c_hidden,
+        c_exp,
+        c_out,
+        n_feat,
+        d1,
+        with_drop,
+        bn_momentum=0.1,
+        upscale_method="pixelshuffle",
+        leaky_relu=True,
+        depth=False,
+    ):
         super().__init__()
         self.dim_split = c_hidden // 2
         c_hidden_b = c_hidden
         if depth:
             c_hidden_b = c_hidden_b + self.dim_split
         assert c_hidden % 2 == 0, "c_hidden must be divisible by 2"
-        self.convs = ModuleList([
-            AnnotatedConvBnReLUModel(c_in, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, d1, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden + d1 // 4, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, d1, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_exp, c_hidden_b, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            Conv2d(self.dim_split, c_out, kernel_size=3, stride=1, padding=1)
-        ])
+        self.convs = ModuleList(
+            [
+                AnnotatedConvBnReLUModel(
+                    c_in,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    d1,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden + d1 // 4,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    d1,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_exp,
+                    c_hidden_b,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                Conv2d(self.dim_split, c_out, kernel_size=3, stride=1, padding=1),
+            ]
+        )
 
         self.depth = depth
         self.featB = Conv2d(self.dim_split, n_feat, kernel_size=3, stride=1, padding=1)
         if self.depth:
-            self.featD = Conv2d(self.dim_split, 1, kernel_size=3, stride=1, padding=1, bias=False)
+            self.featD = Conv2d(
+                self.dim_split, 1, kernel_size=3, stride=1, padding=1, bias=False
+            )
         self.with_drop = with_drop
         self.pool = MaxPool2d(kernel_size=2, stride=2)
 
-        if upscale_method == 'pixelshuffle':
+        if upscale_method == "pixelshuffle":
             self.upsample = PixelShuffle(upscale_factor=2)
             self.upsample2 = PixelShuffle(upscale_factor=2)
             # self.upsample = CustomPixelShuffle(upscale_factor=2)
             # self.upsample2 = CustomPixelShuffle(upscale_factor=2)
-        elif upscale_method == 'convtranspose':
+        elif upscale_method == "convtranspose":
             self.upsample = TransposedConvUpsampleModel(d1, leaky_relu=leaky_relu)
             self.upsample2 = TransposedConvUpsampleModel(d1, leaky_relu=leaky_relu)
         else:
@@ -149,7 +303,6 @@ class SegmentationFeatHeadLight(Module):
         self.dequant = quantization.DeQuantStub()
 
     def freeze(self, except_last_layer=False):
-
         for layer in self.children():
             for param in layer.parameters():
                 param.requires_grad = False
@@ -183,15 +336,16 @@ class SegmentationFeatHeadLight(Module):
 
         seg = self.convs[7](seg)
         seg = self.quant(seg)
-        feat = self.featB(seg[:, :self.dim_split])
+        feat = self.featB(seg[:, : self.dim_split])
         if self.depth:
-            depth = self.featD(seg[:, self.dim_split:self.dim_split * 2])
-        seg_out = self.convs[8](seg[:, -self.dim_split:])
+            depth = self.featD(seg[:, self.dim_split : self.dim_split * 2])
+        seg_out = self.convs[8](seg[:, -self.dim_split :])
         seg_out = self.dequant(seg_out)
         if self.depth:
             return seg_out, feat, depth
         else:
             return seg_out, feat
+
 
 class SegmentationHeadATT(Module):
     """
@@ -199,32 +353,83 @@ class SegmentationHeadATT(Module):
     Computes Segmentation
     """
 
-    def __init__(self, c_in, c_hidden, c_exp, c_out, d1, with_drop, bn_momentum=0.1, upscale_method='pixelshuffle',
-                 leaky_relu=True):
-
+    def __init__(
+        self,
+        c_in,
+        c_hidden,
+        c_exp,
+        c_out,
+        d1,
+        with_drop,
+        bn_momentum=0.1,
+        upscale_method="pixelshuffle",
+        leaky_relu=True,
+    ):
         super().__init__()
-        self.convs = ModuleList([
-            AnnotatedConvBnReLUModel(c_in, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            SegFormerAttentionModule(c_hidden),
-            SegFormerAttentionModule(c_hidden),
-            AnnotatedConvBnReLUModel(c_hidden, d1, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden + d1 // 4, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, d1, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_exp, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            Conv2d(c_hidden, c_out, kernel_size=3, stride=1, padding=1)
-        ])
+        self.convs = ModuleList(
+            [
+                AnnotatedConvBnReLUModel(
+                    c_in,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                SegFormerAttentionModule(c_hidden),
+                SegFormerAttentionModule(c_hidden),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    d1,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden + d1 // 4,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    d1,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_exp,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                Conv2d(c_hidden, c_out, kernel_size=3, stride=1, padding=1),
+            ]
+        )
         self.with_drop = with_drop
         self.pool = MaxPool2d(kernel_size=2, stride=2)
 
-        if upscale_method == 'pixelshuffle':
+        if upscale_method == "pixelshuffle":
             self.upsample = PixelShuffle(upscale_factor=2)
             self.upsample2 = PixelShuffle(upscale_factor=2)
-        elif upscale_method == 'convtranspose':
+        elif upscale_method == "convtranspose":
             self.upsample = TransposedConvUpsampleModel(d1, leaky_relu=leaky_relu)
             self.upsample2 = TransposedConvUpsampleModel(d1, leaky_relu=leaky_relu)
         else:
@@ -261,7 +466,6 @@ class SegmentationHeadATT(Module):
         return seg
 
     def freeze(self, except_last_layer=False):
-
         for layer in self.children():
             for param in layer.parameters():
                 param.requires_grad = False
@@ -272,10 +476,20 @@ class SegmentationHeadATT(Module):
 
 
 class SegmentationFeatHeadLightATT(Module):
-    def __init__(self, c_in, c_hidden, c_exp, c_out, n_feat, d1, with_drop, bn_momentum=0.1,
-                 upscale_method='pixelshuffle',
-                 leaky_relu=True, depth=False):
-
+    def __init__(
+        self,
+        c_in,
+        c_hidden,
+        c_exp,
+        c_out,
+        n_feat,
+        d1,
+        with_drop,
+        bn_momentum=0.1,
+        upscale_method="pixelshuffle",
+        leaky_relu=True,
+        depth=False,
+    ):
         super().__init__()
         self.depth = depth
         self.dim_split = c_hidden // 2
@@ -283,33 +497,76 @@ class SegmentationFeatHeadLightATT(Module):
         if depth:
             c_hidden_b = c_hidden_b + self.dim_split
         assert c_hidden % 2 == 0, "c_hidden must be divisible by 2"
-        self.convs = ModuleList([
-            AnnotatedConvBnReLUModel(c_in, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            SegFormerAttentionModule(c_hidden),
-            SegFormerAttentionModule(c_hidden),
-            AnnotatedConvBnReLUModel(c_hidden, d1, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden + d1 // 4, c_hidden, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_hidden, d1, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            AnnotatedConvBnReLUModel(c_exp, c_hidden_b, kernel_size=3, stride=1, padding=1, bias=False,
-                                     bn_momentum=bn_momentum, leaky_relu=leaky_relu),
-            Conv2d(self.dim_split, c_out, kernel_size=3, stride=1, padding=1)
-
-        ])
+        self.convs = ModuleList(
+            [
+                AnnotatedConvBnReLUModel(
+                    c_in,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                SegFormerAttentionModule(c_hidden),
+                SegFormerAttentionModule(c_hidden),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    d1,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden + d1 // 4,
+                    c_hidden,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_hidden,
+                    d1,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                AnnotatedConvBnReLUModel(
+                    c_exp,
+                    c_hidden_b,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                    bn_momentum=bn_momentum,
+                    leaky_relu=leaky_relu,
+                ),
+                Conv2d(self.dim_split, c_out, kernel_size=3, stride=1, padding=1),
+            ]
+        )
 
         self.featB = Conv2d(self.dim_split, n_feat, kernel_size=3, stride=1, padding=1)
         if self.depth:
-            self.featD = Conv2d(self.dim_split, 1, kernel_size=3, stride=1, padding=1, bias=False)
+            self.featD = Conv2d(
+                self.dim_split, 1, kernel_size=3, stride=1, padding=1, bias=False
+            )
         self.with_drop = with_drop
         self.pool = MaxPool2d(kernel_size=2, stride=2)
 
-        if upscale_method == 'pixelshuffle':
+        if upscale_method == "pixelshuffle":
             self.upsample = PixelShuffle(upscale_factor=2)
             self.upsample2 = PixelShuffle(upscale_factor=2)
-        elif upscale_method == 'convtranspose':
+        elif upscale_method == "convtranspose":
             self.upsample = TransposedConvUpsampleModel(d1, leaky_relu=leaky_relu)
             self.upsample2 = TransposedConvUpsampleModel(d1, leaky_relu=leaky_relu)
         else:
@@ -320,7 +577,6 @@ class SegmentationFeatHeadLightATT(Module):
         self.dequant = quantization.DeQuantStub()
 
     def freeze(self, except_last_layer=False):
-
         for layer in self.children():
             for param in layer.parameters():
                 param.requires_grad = False
@@ -352,10 +608,10 @@ class SegmentationFeatHeadLightATT(Module):
 
         seg = self.convs[6](seg)
         seg = self.quant(seg)
-        feat = self.featB(seg[:, :self.dim_split])
+        feat = self.featB(seg[:, : self.dim_split])
         if self.depth:
-            depth = self.featD(seg[:, self.dim_split:self.dim_split * 2])
-        seg_out = self.convs[7](seg[:, -self.dim_split:])
+            depth = self.featD(seg[:, self.dim_split : self.dim_split * 2])
+        seg_out = self.convs[7](seg[:, -self.dim_split :])
         seg_out = self.dequant(seg_out)
         if self.depth:
             return seg_out, feat, depth

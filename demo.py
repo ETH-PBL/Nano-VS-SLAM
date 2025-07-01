@@ -1,13 +1,18 @@
 from src.kp2dtiny.models.kp2dtiny import tiny_factory
-from evaluation.visual_odometry import evaluate_visual_odometry, demo, samsung_params, kitty_params
-from utils.utils import load_json
+from evaluation.visual_odometry import (
+    demo,
+    samsung_params,
+)
 import torch
-from pathlib import Path
+
 weights_path = r"./demo_data/V3_S_A_p_best.ckpt"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 model = tiny_factory("S_A", 28, v3=True).cpu()
-model.load_state_dict(torch.load(weights_path, map_location=torch.device("cpu"))['state_dict'], strict=False)
+model.load_state_dict(
+    torch.load(weights_path, map_location=torch.device("cpu"))["state_dict"],
+    strict=False,
+)
 model = model.to(device)
 model.eval()
 model.training = False
@@ -17,7 +22,16 @@ out_path = r"./demo_data"
 
 new_size = (240, 320)
 cam_params = samsung_params(new_size)
-demo(model, video_path, cam_params, device, new_size, plot=True, out_path=out_path, track=False)
+demo(
+    model,
+    video_path,
+    cam_params,
+    device,
+    new_size,
+    plot=True,
+    out_path=out_path,
+    track=False,
+)
 
 # KITTI DEMO
 # datasets_config = load_json(r"./datasets.json")
