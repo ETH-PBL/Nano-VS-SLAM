@@ -8,11 +8,11 @@ import wandb
 from src.kp2dtiny.models.KeypointNetwithIOLoss import KeypointNetwithIOLoss
 from src.data.patches_dataset import get_patches_dataset
 from src.data.pittsburgh import get_whole_val_set
-from src.evaluation.evaluate_keypoints import evaluate_keypoint_net
-from src.evaluation.evaluate_segmentation import evaluate_segmentation
-from src.evaluation.global_descriptor_evaluation import evaluate_global_descriptor
-from src.evaluation.visual_odometry_evaluation import evaluate_visual_odometry
-from src.evaluation.evaluate_depth_estimation import evaluate_depth_estimation
+from evaluation.keypoints import evaluate_keypoint_net
+from evaluation.segmentation import evaluate_segmentation
+from evaluation.global_descriptor import evaluate_global_descriptor
+from evaluation.visual_odometry import evaluate_visual_odometry
+from evaluation.depth_estimation import evaluate_depth_estimation
 from utils.utils import load_checkpoint, save_checkpoint, set_seed, load_json
 from src.data.scene_parse_150 import get_dataset
 from src.data.cityscapes import CityScapeLoader, get_cityscapes_transforms

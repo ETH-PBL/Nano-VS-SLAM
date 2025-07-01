@@ -1,4 +1,4 @@
-from src.evaluation.global_descriptor_evaluation import evaluate_global_descriptor
+from evaluation.global_descriptor import evaluate_global_descriptor
 import torch
 import numpy as np
 from torch.utils.data import DataLoader, SubsetRandomSampler

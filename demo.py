@@ -1,5 +1,5 @@
 from src.kp2dtiny.models.kp2dtiny import tiny_factory
-from src.evaluation.visual_odometry_evaluation import evaluate_visual_odometry, demo, samsung_params, kitty_params
+from evaluation.visual_odometry import evaluate_visual_odometry, demo, samsung_params, kitty_params
 from utils.utils import load_json
 import torch
 from pathlib import Path

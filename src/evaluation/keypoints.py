@@ -4,11 +4,9 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from .descriptor_evaluation import (compute_homography,
-                                                   compute_matching_score)
-from .detector_evaluation import compute_repeatability
+from .descriptor import compute_homography, compute_matching_score
+from .detector import compute_repeatability
 import csv
-
 
 
 def cal_error_auc(errors, thresholds):
@@ -41,30 +39,42 @@ class AUCMetric:
             return np.nan
         else:
             return cal_error_auc(self._elements, self.thresholds)
+
+
 def write_to_file(row):
     """
     Write row to csv file
     :param row:
     :return:
     """
-    with open('result.csv', 'a', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=' ',
-                                quotechar='|', quoting=csv.QUOTE_MINIMAL)
+    with open("result.csv", "a", newline="") as csvfile:
+        writer = csv.writer(
+            csvfile, delimiter=" ", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
         writer.writerow(row)
 
-def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), top_k=300, debug=False, offset = 0, tflite = False):
-    """Keypoint net evaluation script. 
+
+def evaluate_keypoint_net(
+    data_loader,
+    keypoint_net,
+    output_shape=(320, 240),
+    top_k=300,
+    debug=False,
+    offset=0,
+    tflite=False,
+):
+    """Keypoint net evaluation script.
 
     Parameters
     ----------
     data_loader: torch.utils.data.DataLoader
-        Dataset loader. 
+        Dataset loader.
     keypoint_net: torch.nn.module
         Keypoint network.
     output_shape: tuple [W,H]
         Original image shape.
     top_k: int
-        Number of keypoints to use to compute metrics, selected based on probability.    
+        Number of keypoints to use to compute metrics, selected based on probability.
     use_color: bool
         Use color or grayscale images.
     """
@@ -77,7 +87,7 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
     auc_h_ransac = AUCMetric([1, 3, 5])
     with torch.no_grad():
         for i, sample in tqdm(enumerate(data_loader), desc="evaluate_keypoint_net"):
-            if i<offset:
+            if i < offset:
                 continue
             # if use_color:
             #     image = to_color_normalized(sample['image'].to(keypoint_net.device))
@@ -85,17 +95,17 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
             # else:
             #     image = to_gray_normalized(sample['image'].to(keypoint_net.device))
             #     warped_image = to_gray_normalized(sample['image_aug'].to(keypoint_net.device))
-            image = sample['image'].to(keypoint_net.device)
-            warped_image = sample['image_aug'].to(keypoint_net.device)
+            image = sample["image"].to(keypoint_net.device)
+            warped_image = sample["image_aug"].to(keypoint_net.device)
             B, C, H, W = image.shape
 
             out_1 = keypoint_net(image)
             out_1 = keypoint_net.post_processing(out_1, H, W)
-            score_1, coord_1, desc1 = out_1['score'], out_1['coord'], out_1['feat']
+            score_1, coord_1, desc1 = out_1["score"], out_1["coord"], out_1["feat"]
 
             out_2 = keypoint_net(warped_image)
             out_2 = keypoint_net.post_processing(out_2, H, W)
-            score_2, coord_2, desc2 = out_2['score'], out_2['coord'], out_2['feat']
+            score_2, coord_2, desc2 = out_2["score"], out_2["coord"], out_2["feat"]
 
             B, C, Hc, Wc = desc1.shape
 
@@ -103,14 +113,13 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
             score_1 = torch.cat([coord_1, score_1], dim=1).view(3, -1).t().cpu().numpy()
             score_2 = torch.cat([coord_2, score_2], dim=1).view(3, -1).t().cpu().numpy()
 
-
             if not tflite:
                 desc1 = desc1.view(C, -1).t().cpu().numpy()
                 desc2 = desc2.view(C, -1).t().cpu().numpy()
             else:
                 # use this in case of tflite
-                desc1 = desc1.reshape(-1,C).cpu().numpy()
-                desc2 = desc2.reshape(-1,C).cpu().numpy()
+                desc1 = desc1.reshape(-1, C).cpu().numpy()
+                desc2 = desc2.reshape(-1, C).cpu().numpy()
 
             # Filter based on confidence threshold
             desc1 = desc1[score_1[:, 2] > conf_threshold, :]
@@ -119,23 +128,29 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
             score_2 = score_2[score_2[:, 2] > conf_threshold, :]
 
             # Prepare data for eval
-            data = {'image': sample['image'].numpy().squeeze(),
-                    'image_shape' : output_shape[::-1], # convert to [H,W]
-                    'image_aug': sample['image_aug'].numpy().squeeze(),
-                    'homography': sample['homography'].squeeze().numpy(),
-                    'prob': score_1, 
-                    'warped_prob': score_2,
-                    'desc': desc1,
-                    'warped_desc': desc2}
-            
+            data = {
+                "image": sample["image"].numpy().squeeze(),
+                "image_shape": output_shape[::-1],  # convert to [H,W]
+                "image_aug": sample["image_aug"].numpy().squeeze(),
+                "homography": sample["homography"].squeeze().numpy(),
+                "prob": score_1,
+                "warped_prob": score_2,
+                "desc": desc1,
+                "warped_desc": desc2,
+            }
+
             # Compute repeatabilty and localization error
-            _, _, rep, loc_err = compute_repeatability(data, keep_k_points=top_k, distance_thresh=3)
+            _, _, rep, loc_err = compute_repeatability(
+                data, keep_k_points=top_k, distance_thresh=3
+            )
             if (rep != -1) and (loc_err != -1):
                 repeatability.append(rep)
                 localization_err.append(loc_err)
 
             # Compute correctness
-            c1, c2, c3, mean_dist = compute_homography(data, keep_k_points=top_k, debug = debug)
+            c1, c2, c3, mean_dist = compute_homography(
+                data, keep_k_points=top_k, debug=debug
+            )
 
             correctness1.append(c1)
             correctness3.append(c2)
@@ -146,10 +161,15 @@ def evaluate_keypoint_net(data_loader, keypoint_net, output_shape=(320, 240), to
 
             # Compute segmentation scores
             # TODO: calculate overlap between both images
-            #write_to_file([i, rep, loc_err, c1, c2, c3, mscore])
+            # write_to_file([i, rep, loc_err, c1, c2, c3, mscore])
             MScore.append(mscore)
 
-
-    return np.mean(repeatability), np.mean(localization_err), \
-           np.mean(correctness1), np.mean(correctness3), np.mean(correctness5), np.mean(MScore), auc_h_ransac.compute()
-
+    return (
+        np.mean(repeatability),
+        np.mean(localization_err),
+        np.mean(correctness1),
+        np.mean(correctness3),
+        np.mean(correctness5),
+        np.mean(MScore),
+        auc_h_ransac.compute(),
+    )

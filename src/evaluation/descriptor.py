@@ -1,18 +1,16 @@
 # Copyright 2020 Toyota Research Institute.  All rights reserved.
 # Adapted from: https://github.com/rpautrat/SuperPoint/blob/master/superpoint/evaluations/descriptor_evaluation.py
 
-import random
-from glob import glob
-from os import path as osp
-
 import cv2
 import numpy as np
 
 from utils.keypoints import warp_keypoints
+
 MAX_VAL = 1000
 
+
 def select_k_best(points, descriptors, k):
-    """ Select the k most probable points (and strip their probability).
+    """Select the k most probable points (and strip their probability).
     points has shape (num_points, 3) where the last coordinate is the probability.
     Parameters
     ----------
@@ -65,14 +63,22 @@ def keep_shared_points(keypoints, descriptors, H, shape, keep_k_points=1000):
     """
 
     def keep_true_keypoints(points, descriptors, H, shape):
-        """ Keep only the points whose warped coordinates by H are still inside shape. """
+        """Keep only the points whose warped coordinates by H are still inside shape."""
         warped_points = warp_keypoints(points[:, :2], H)
-        mask = (warped_points[:, 0] >= 0) & (warped_points[:, 0] < shape[0]) & \
-               (warped_points[:, 1] >= 0) & (warped_points[:, 1] < shape[1])
+        mask = (
+            (warped_points[:, 0] >= 0)
+            & (warped_points[:, 0] < shape[0])
+            & (warped_points[:, 1] >= 0)
+            & (warped_points[:, 1] < shape[1])
+        )
         return points[mask, :], descriptors[mask, :]
 
-    selected_keypoints, selected_descriptors = keep_true_keypoints(keypoints, descriptors, H, shape)
-    selected_keypoints, selected_descriptors = select_k_best(selected_keypoints, selected_descriptors, keep_k_points)
+    selected_keypoints, selected_descriptors = keep_true_keypoints(
+        keypoints, descriptors, H, shape
+    )
+    selected_keypoints, selected_descriptors = select_k_best(
+        selected_keypoints, selected_descriptors, keep_k_points
+    )
     return selected_keypoints, selected_descriptors
 
 
@@ -103,19 +109,21 @@ def compute_matching_score(data, keep_k_points=1000):
     ms: float
         Matching score.
     """
-    shape = data['image_shape']
-    real_H = data['homography']
+    shape = data["image_shape"]
+    real_H = data["homography"]
 
     # Filter out predictions
-    keypoints = data['prob']
-    warped_keypoints = data['warped_prob']
+    keypoints = data["prob"]
+    warped_keypoints = data["warped_prob"]
 
-    desc = data['desc']
-    warped_desc = data['warped_desc']
+    desc = data["desc"]
+    warped_desc = data["warped_desc"]
 
     # Keeps all points for the next frame. The matching for caculating M.Score shouldnt use only in view points.
     keypoints, desc = select_k_best(keypoints, desc, keep_k_points)
-    warped_keypoints, warped_desc = select_k_best(warped_keypoints, warped_desc, keep_k_points)
+    warped_keypoints, warped_desc = select_k_best(
+        warped_keypoints, warped_desc, keep_k_points
+    )
 
     # Match the keypoints with the warped_keypoints with nearest neighbor search
     # This part needs to be done with crossCheck=False.
@@ -133,10 +141,13 @@ def compute_matching_score(data, keep_k_points=1000):
     m_warped_keypoints = warped_keypoints[matches_idx, :]
 
     true_warped_keypoints = warp_keypoints(m_warped_keypoints, np.linalg.inv(real_H))
-    vis_warped = np.all((true_warped_keypoints >= 0) & (true_warped_keypoints <= (np.array(shape) - 1)), axis=-1)
+    vis_warped = np.all(
+        (true_warped_keypoints >= 0) & (true_warped_keypoints <= (np.array(shape) - 1)),
+        axis=-1,
+    )
     norm1 = np.linalg.norm(true_warped_keypoints - m_keypoints, axis=-1)
 
-    correct1 = (norm1 < 3)
+    correct1 = norm1 < 3
     count1 = np.sum(correct1 * vis_warped)
     score1 = count1 / np.maximum(np.sum(vis_warped), 1.0)
 
@@ -147,10 +158,12 @@ def compute_matching_score(data, keep_k_points=1000):
     m_keypoints = keypoints[matches_idx, :]
 
     true_keypoints = warp_keypoints(m_keypoints, real_H)
-    vis = np.all((true_keypoints >= 0) & (true_keypoints <= (np.array(shape) - 1)), axis=-1)
+    vis = np.all(
+        (true_keypoints >= 0) & (true_keypoints <= (np.array(shape) - 1)), axis=-1
+    )
     norm2 = np.linalg.norm(true_keypoints - m_warped_keypoints, axis=-1)
 
-    correct2 = (norm2 < 3)
+    correct2 = norm2 < 3
     count2 = np.sum(correct2 * vis)
     score2 = count2 / np.maximum(np.sum(vis), 1.0)
 
@@ -190,45 +203,51 @@ def compute_homography(data, keep_k_points=1000, debug=False):
     correctness5: float
         correctness5 metric.
     """
-    shape = data['image_shape']
-    real_H = data['homography']
+    shape = data["image_shape"]
+    real_H = data["homography"]
 
-    keypoints = data['prob']
-    warped_keypoints = data['warped_prob']
+    keypoints = data["prob"]
+    warped_keypoints = data["warped_prob"]
 
-    desc = data['desc']
-    warped_desc = data['warped_desc']
+    desc = data["desc"]
+    warped_desc = data["warped_desc"]
 
     # Keeps only the points shared between the two views
     keypoints, desc = keep_shared_points(keypoints, desc, real_H, shape, keep_k_points)
-    warped_keypoints, warped_desc = keep_shared_points(warped_keypoints, warped_desc, np.linalg.inv(real_H), shape,
-                                                       keep_k_points)
+    warped_keypoints, warped_desc = keep_shared_points(
+        warped_keypoints, warped_desc, np.linalg.inv(real_H), shape, keep_k_points
+    )
     try:
         bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
         matches = bf.match(desc, warped_desc)
         matches_idx = np.array([m.queryIdx for m in matches])
         m_keypoints = keypoints[matches_idx, :]
     except:
-        return 0, 0, 0,MAX_VAL
+        return 0, 0, 0, MAX_VAL
 
     matches_idx = np.array([m.trainIdx for m in matches])
     m_warped_keypoints = warped_keypoints[matches_idx, :]
 
-
     if m_keypoints.shape[0] < 4 or m_warped_keypoints.shape[0] < 4:
-        return 0, 0, 0,MAX_VAL
+        return 0, 0, 0, MAX_VAL
 
     # Estimate the homography between the matches using RANSAC
-    H, M = cv2.findHomography(m_keypoints, m_warped_keypoints, cv2.RANSAC, 3, maxIters=5000)
+    H, M = cv2.findHomography(
+        m_keypoints, m_warped_keypoints, cv2.RANSAC, 3, maxIters=5000
+    )
 
     if H is None:
-        return 0, 0, 0,MAX_VAL
+        return 0, 0, 0, MAX_VAL
 
     # Compute correctness
-    corners = np.array([[0, 0, 1],
-                        [0, shape[1] - 1, 1],
-                        [shape[0] - 1, 0, 1],
-                        [shape[0] - 1, shape[1] - 1, 1]])
+    corners = np.array(
+        [
+            [0, 0, 1],
+            [0, shape[1] - 1, 1],
+            [shape[0] - 1, 0, 1],
+            [shape[0] - 1, shape[1] - 1, 1],
+        ]
+    )
     real_warped_corners = np.dot(corners, np.transpose(real_H))
     real_warped_corners = real_warped_corners[:, :2] / real_warped_corners[:, 2:]
     warped_corners = np.dot(corners, np.transpose(H))
@@ -240,26 +259,34 @@ def compute_homography(data, keep_k_points=1000, debug=False):
     correctness5 = float(mean_dist <= 5)
 
     if debug:
-        img_debug = data['image'].copy()+1
-        img_debug = np.ascontiguousarray((img_debug*128).astype(np.uint8).transpose(1,2,0))
-        img_debug = draw_kps(img_debug, m_keypoints, c = (0,0,255))
-        img_debug = draw_kps(img_debug, m_keypoints[M.astype('bool')[:,0],:], c=(255, 0, 255))
+        img_debug = data["image"].copy() + 1
+        img_debug = np.ascontiguousarray(
+            (img_debug * 128).astype(np.uint8).transpose(1, 2, 0)
+        )
+        img_debug = draw_kps(img_debug, m_keypoints, c=(0, 0, 255))
+        img_debug = draw_kps(
+            img_debug, m_keypoints[M.astype("bool")[:, 0], :], c=(255, 0, 255)
+        )
         cv2.imshow("hi", img_debug)
 
-        img_debug = data['image_aug'].copy()+1
-        img_debug = np.ascontiguousarray((img_debug*128).astype(np.uint8).transpose(1,2,0))
-        img_debug = draw_kps(img_debug, m_warped_keypoints, c = (255,0,0))
-        img_debug = draw_kps(img_debug, m_warped_keypoints[M.astype('bool')[:,0],:], c = (255,0,255))
-        img_debug = draw_kps(img_debug, real_warped_corners, c = (0,255,0))
-        img_debug = draw_kps(img_debug, warped_corners, c = (255,255,255))
+        img_debug = data["image_aug"].copy() + 1
+        img_debug = np.ascontiguousarray(
+            (img_debug * 128).astype(np.uint8).transpose(1, 2, 0)
+        )
+        img_debug = draw_kps(img_debug, m_warped_keypoints, c=(255, 0, 0))
+        img_debug = draw_kps(
+            img_debug, m_warped_keypoints[M.astype("bool")[:, 0], :], c=(255, 0, 255)
+        )
+        img_debug = draw_kps(img_debug, real_warped_corners, c=(0, 255, 0))
+        img_debug = draw_kps(img_debug, warped_corners, c=(255, 255, 255))
         cv2.imshow("hi2", img_debug)
 
         cv2.waitKey(1)
     return correctness1, correctness3, correctness5, mean_dist
 
 
-def draw_kps(img_debug, corners, c = (0, 0, 255)):
-    for pt in corners[:,:2].astype(np.int32):
+def draw_kps(img_debug, corners, c=(0, 0, 255)):
+    for pt in corners[:, :2].astype(np.int32):
         x, y = int(pt[0]), int(pt[1])
-        img_debug = cv2.circle(img_debug, (x,y), 2,  c, -1)
+        img_debug = cv2.circle(img_debug, (x, y), 2, c, -1)
     return img_debug

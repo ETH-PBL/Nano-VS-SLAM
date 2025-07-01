@@ -13,7 +13,7 @@ import warnings, os, argparse
 
 
 import src.data.pittsburgh as dataset
-from src.evaluation.global_descriptor_evaluation import evaluate_global_descriptor
+from evaluation.global_descriptor import evaluate_global_descriptor
 from utils.utils import load_checkpoint, save_checkpoint, set_seed, load_json
 
 from src.kp2dtiny.models.kp2d_former import KeypointFormer

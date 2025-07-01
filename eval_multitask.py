@@ -15,11 +15,11 @@ from src.data.cityscapes import CityScapeLoader, get_cityscapes_transforms
 from src.data.coco import COCOLoader, get_coco_transforms
 from src.data.nyuv2 import NYUv2Dataset_extracted, get_nyuv2_transforms
 
-from src.evaluation.evaluate_keypoints import evaluate_keypoint_net
-from src.evaluation.evaluate_segmentation import evaluate_segmentation
-from src.evaluation.global_descriptor_evaluation import evaluate_global_descriptor
-from src.evaluation.visual_odometry_evaluation import evaluate_visual_odometry
-from src.evaluation.evaluate_depth_estimation import evaluate_depth_estimation
+from evaluation.keypoints import evaluate_keypoint_net
+from evaluation.segmentation import evaluate_segmentation
+from evaluation.global_descriptor import evaluate_global_descriptor
+from evaluation.visual_odometry import evaluate_visual_odometry
+from evaluation.depth_estimation import evaluate_depth_estimation
 
 from src.kp2dtiny.models.kp2dtiny import KP2DTinyV2, get_config, KP2DTinyV3
 

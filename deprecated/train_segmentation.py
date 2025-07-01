@@ -15,7 +15,7 @@ from utils.utils import load_checkpoint, save_checkpoint, set_seed, load_json
 import argparse
 import numpy as np
 from tqdm import tqdm
-from evaluation.evaluate_segmentation import evaluate_segmentation
+from evaluation.segmentation import evaluate_segmentation
 import wandb
 import os
 from utils.losses import jaccard_distance_loss
