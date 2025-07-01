@@ -8,4 +8,5 @@ model.training = False
 
 x = torch.randn(1, 3, 120, 160)
 out = model(x)
-print(out)
+print(out.keys())
+print("Sanity check passed.")

@@ -51,10 +51,15 @@ The repository is structured as follows:
 ## Note
 - Results might be higher than reported in the report due to a prior bug which is now resolved. During segmentation evaluation ignore_index was not set before resulting in undefined pixels being counted.
 # Setup
+## Python environment
 1. Create python environment (3.10/3.11 tested)
 2. install requirements `pip3 install -r requirements.txt` (cuda 12.4, for cuda 11.8 use requirements_cu118.txt)
-3. setup datasets (see section datasets)
-4. create `datasets.json` containing your dataset directories (use `datasets_template.json` as a template):  
+Or use uv:
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)
+2. run `uv sync`
+## Datasets
+1. setup datasets (see section datasets)
+2. create `datasets.json` containing your dataset directories (use `datasets_template.json` as a template):  
   ```
 {
     "hpatches_data_path": "..\\Datasets\\HPatches",
@@ -69,9 +74,10 @@ The repository is structured as follows:
     "kitti_video_path": "video_color.mp4"
 }
   ```
-5. get pretrained models [link](https://polybox.ethz.ch/index.php/s/ZwbDKqrH1Lp5SKW)
-6. (recommended) setup weights and biases for logging (wandb)
-7. Check if multitask training works by running the following command:
+  Note: you will not need all of these datasets. Mainly Coco/Pittsburgh/Cityscapes for training and Kitti/Hpatches for testing.
+1. get pretrained models
+2. (recommended) setup weights and biases for logging (wandb)
+3. Check if multitask training works by running the following command:
   ```
   python .\train_multitask.py --config S  --device cpu
   ```
@@ -79,7 +85,7 @@ or using cuda:
   ```
   python .\train_multitask.py --config S  --device cuda
   ```
-8. Run Demo script (check demo_data/readme.txt to get model weights and test data)
+1. Run Demo script (check demo_data/readme.txt to get model weights and test data)
 # Models
 We implement a variety of models. The exact configurations can be found in the model class file.
 ## Weight Sharing Strategy
@@ -143,16 +149,11 @@ python .\export_onnx.py --weight_path .\checkpoints\tiny_S.ckpt --config S --im_
 - 1449 labeled images
 - RGB/Depth/Segmentation/(Instances)
 - 894 classes
-- extracted Dataset: [link](https://polybox.ethz.ch/index.php/s/8SCaKmFaA2w12GS)
+- Note: you will have to extract the images from the dataset first.
 - the non labeled dataset can be downloaded from huggingface automatically
 - [NyuDepthV2](https://cs.nyu.edu/~silberman/datasets/nyu_depth_v2.html)
 - [NyuDepthV2_labeled_torrent](https://academictorrents.com/details/47a9a46bb784b394e398228d4c85a8d61d01dfa8)
 
-  ```
-  wget https://polybox.ethz.ch/index.php/s/8SCaKmFaA2w12GS/download
-  unzip download
-  rm download
-  ```
 
 ## Scene Parse 150
 - 20000 labeled images
@@ -165,13 +166,6 @@ python .\export_onnx.py --weight_path .\checkpoints\tiny_S.ckpt --config S --im_
 
 ## Pittsburgh 250
 - [link](https://data.ciirc.cvut.cz/public/projects/2015netVLAD/Pittsburgh250k/)
-- extracted dataset: [link](https://polybox.ethz.ch/index.php/s/2Ei0W5ubvkWhESC) 
-
-  ```
-  wget https://polybox.ethz.ch/index.php/s/2Ei0W5ubvkWhESC/download
-  unzip download
-  rm download
-  ```
 
 ## Coco Stuff
 ```
@@ -202,11 +196,7 @@ unzip downloads/stuffthingmaps_trainval2017.zip -d dataset/annotations/
   ```
 
 ## Kitti test sequence
-  ```
-  wget https://polybox.ethz.ch/index.php/s/xhspmIowARAL66T/download
-  unzip download
-  rm download
-  ```
+You can find kitti test sequences in the [PySlam repository](https://github.com/luigifreda/pyslam/tree/master/data/videos)
 
 ## Kitti benchmark
 get the kitty benchmark [link](https://www.cvlibs.net/datasets/kitti/eval_odometry.php)
@@ -227,7 +217,7 @@ Use the python package cityscapesscripts:
 
 
 ## Pretrained Models
-- [Checkpoints](https://polybox.ethz.ch/index.php/s/gkdY3UUc7uQLSJE)
+- Contact nanovs@thomasengineer.com for the weights
 # Training Light Glue
 Light glue is a neural network dedicated to matching keypoints.
 It can be trained on custom feature point detectors such as this one.
