@@ -3,12 +3,13 @@ import torch
 from torch._export import capture_pre_autograd_graph
 from torch.export import export, ExportedProgram
 
+
 def calibrate(model, data_loader, num_batches=100):
     model.eval()
 
     with torch.no_grad():
-        for i,sample in enumerate(data_loader):
-            image = sample['image']
+        for i, sample in enumerate(data_loader):
+            image = sample["image"]
             model(image)
             if i > num_batches:
                 break
@@ -39,10 +40,12 @@ def quantize_4_executorch(model):
 
     return aten_dialect
 
+
 def to_executorch(aten_dialect):
     from executorch.exir import ExecutorchBackendConfig, ExecutorchProgramManager
     from executorch.exir.passes import MemoryPlanningPass
     import executorch.exir as exir
+
     edge_program: exir.EdgeProgramManager = exir.to_edge(aten_dialect)
     executorch_program: exir.ExecutorchProgramManager = edge_program.to_executorch(
         ExecutorchBackendConfig(
@@ -51,20 +54,21 @@ def to_executorch(aten_dialect):
     )
     with open("model.pte", "wb") as file:
         file.write(executorch_program.buffer)
-    
-def quantize(model, dataset_val, backend='fbgemm'):
+
+
+def quantize(model, dataset_val, backend="fbgemm"):
     torch.backends.quantized.engine = backend
     model.training = False
     model.eval()
-    #model.fuse()
+    # model.fuse()
     model.qconfig = torch.ao.quantization.get_default_qconfig(backend)
-
 
     model_prepared = torch.ao.quantization.prepare(model)
     print("Calibrating model...")
     calibrate(model_prepared, dataset_val)
     model_quantized = torch.ao.quantization.convert(model_prepared)
     return model_quantized
+
 
 def save(model, out_path):
     torch.jit.save(torch.jit.script(model), out_path)
