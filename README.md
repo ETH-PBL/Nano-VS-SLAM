@@ -7,7 +7,8 @@ They aim at solving multiple tasks simultaneously to be used within a SLAM pipel
 - Visual Place Recognition (VPR)
 - Monocular Depth Estimation (experimental)
 
-![Network Architecture](assets/NN_overview.pdf)
+![Network Architecture](assets/NN_overview.png)
+
 Implemented are  fully convolutional models, transformer based models as well as a hybrid.
 
 Supported export formats are:
