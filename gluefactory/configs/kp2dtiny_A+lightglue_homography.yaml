@@ -1,0 +1,63 @@
+data:
+    name: homographies
+    data_dir: revisitop1m
+    train_size: 150000
+    val_size: 2000
+    batch_size: 2
+    num_workers: 8
+    homography:
+        difficulty: 0.7
+        max_angle: 45
+    photometric:
+        name: lg
+model:
+    name: two_view_pipeline
+    extractor:
+        name: gluefactory.models.extractors.kp2dtiny
+        max_num_keypoints: 1000
+        trainable: False
+        model_config: "S"
+        weights_path: "./data/kp2dtiny_checkpoints/tiny_S.ckpt"
+    ground_truth:
+        name: matchers.homography_matcher
+        th_positive: 3
+        th_negative: 3
+    matcher:
+        name: matchers.lightglue
+        filter_threshold: 0.1
+        flash: false
+        checkpointed: true
+        input_dim: 32
+        descriptor_dim: 32
+        n_layers: 4
+
+train:
+    seed: 0
+    epochs: 40
+    log_every_iter: 100
+    eval_every_iter: 500
+    lr: 1e-4
+    lr_schedule:
+        start: 20
+        type: exp
+        on_epoch: true
+        exp_div_10: 10
+    plot: [5, 'gluefactory.visualization.visualize_batch.make_match_figures']
+benchmarks:
+    hpatches:
+        eval:
+            num_workers: 1
+            estimator: opencv
+            ransac_th: 0.5
+        data:
+            preprocessing:
+                side: short
+                resize: 480
+    megadepth1500:
+        data:
+            preprocessing:
+                side: short
+                resize: 480
+        eval:
+            estimator: opencv
+            ransac_th: 0.5
